@@ -224,7 +224,27 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
 
-      - name: Bug report to reproduce
+      # Xiaomo addition: local Anthropic->OpenAI translator so the agent can
+      # use free OpenAI-format vision models (Gemini Flash-Lite free tier).
+      # Active only when llm_base_url points at localhost:4000.
+      - name: Start LiteLLM translator (free Gemini vision)
+        if: inputs.llm_base_url == 'http://127.0.0.1:4000'
+        env:
+          UPSTREAM_API_KEY: "${{ secrets.LLM_API_KEY }}"
+        run: |
+          pip install -q "litellm[proxy]"
+          cat > litellm.yaml <<'YAML'
+          model_list:
+            - model_name: gemini-vision
+              litellm_params:
+                model: openai/gemini-3.5-flash-lite
+                api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+                api_key: os.environ/UPSTREAM_API_KEY
+          YAML
+          nohup litellm --config litellm.yaml --port 4000 > litellm.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4000/health >/dev/null && break || sleep 2; done
+          curl -sf http://127.0.0.1:4000/health && echo "LiteLLM up" || { cat litellm.log; exit 1; }
+- name: Bug report to reproduce
         if: inputs.bug_report != ''
         env:
           BUG_REPORT: ${{ inputs.bug_report }}
