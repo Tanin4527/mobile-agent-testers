@@ -244,7 +244,7 @@ jobs:
           nohup litellm --config litellm.yaml --port 4000 > litellm.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4000/health >/dev/null && break || sleep 2; done
           curl -sf http://127.0.0.1:4000/health && echo "LiteLLM up" || { cat litellm.log; exit 1; }
-- name: Bug report to reproduce
+      - name: Bug report to reproduce
         if: inputs.bug_report != ''
         env:
           BUG_REPORT: ${{ inputs.bug_report }}
